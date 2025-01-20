@@ -155,7 +155,6 @@ func healthCheck() {
 // ---------------------------
 // ----------- MAIN ----------
 // ---------------------------
-
 var serverPool ServerPool
 
 func LoadBalancing(w http.ResponseWriter, r *http.Request) {
@@ -188,7 +187,7 @@ func myErrorHandler(proxy *httputil.ReverseProxy, serverUrl *url.URL, writer htt
 	// after 3 retries, mark this backend as down
 	serverPool.MarkBackendStatus(serverUrl, false)
 
-	// if the same request routing for few attempts with different backends, increase the count
+	// try a different backends, increase attempt count
 	attempts := GetAttemptsFromContext(request)
 	log.Printf("%s(%s) Attempting retry %d\n", request.RemoteAddr, request.URL.Path, attempts)
 	ctx := context.WithValue(request.Context(), Attempts, attempts+1)
