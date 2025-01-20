@@ -1,6 +1,2 @@
 ## Building From Scratch
-
-I plan to build from scratch famous technologies or frameworks to understand how they work under the hood. 
-I'll to collect in this repo a couple of little projects. To larger projects I will probably create a new repo.
-
-I'll be using various programming languages, I'll choose the most appropriate language for the task, if any.
+I plan to build well-known technologies and frameworks from the ground up to gain a deeper understanding of how they work internally. I'll collect smaller projects in this repository, larger projects will likely have their own dedicated repositories but I'll put a link here. I’ll use various programming languages, selecting the most suitable for each task.
