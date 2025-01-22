@@ -1,6 +1,6 @@
 ## Simple Container in Go
-Simple implementation of a container.
-It creates isolation at these levels: hostname, PID namespace and filesystem isolation.
+Simple implementation of a container with cgroups and namespaces.
+It isolates the hostname, the PID namespace and the filesystem.
 A copy of the root filesystem is needed by the container, at `` /home/newroot ``.
 
 Usage: 
