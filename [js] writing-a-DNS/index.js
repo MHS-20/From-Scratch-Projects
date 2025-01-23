@@ -25,7 +25,8 @@ server.on("message", async (msg, rinfo) => {
 
   // match records based on type and name
   let askedRecords = knownRecords[recordType].filter(
-    (el) => el.name == askedRecord);
+    (el) => el.name == askedRecord
+  );
   let ANCOUNT = askedRecords.length.toString(16).padStart(4, 0);
   ANCOUNT = new Buffer.from(ANCOUNT, "hex");
 
@@ -33,7 +34,7 @@ server.on("message", async (msg, rinfo) => {
   let NSCOUNT = new Buffer.from("0000", "hex");
   let ARCOUNT = new Buffer.from("0000", "hex");
 
-  // include question in the response 
+  // include question in the response
   let domainQuestion = new Buffer.from(
     buildQuestion(domainName, recordType),
     "hex"
@@ -140,23 +141,95 @@ async function getRecords(data) {
   return [knownRecords, recordType, domainName, askedRecord];
 }
 
-
 function buildQuestion(domainParts, recordType) {
-    let qBytes = "";
-  
-    for (let part of domainParts) {
-      let length = part.length;
-      qBytes += length.toString(16).padStart(2, 0);
-      for (let char of part) {
-        qBytes += char.charCodeAt(0).toString(16);
-      }
+  let qBytes = "";
+
+  for (let part of domainParts) {
+    let length = part.length;
+    qBytes += length.toString(16).padStart(2, 0);
+    for (let char of part) {
+      qBytes += char.charCodeAt(0).toString(16);
     }
-  
-    qBytes += "00";
-    qBytes += getRecordTypeHex(recordType);
-    qBytes += "00" + "01";
-    return qBytes;
   }
+
+  qBytes += "00";
+  qBytes += getRecordTypeHex(recordType);
+  qBytes += "00" + "01";
+  return qBytes;
+}
+
+// ---- CONVERT RESPONSE TO BYTES ----
+// based on the Qtype
+
+function stringToHex(string) {
+  return parseInt(string).toString(16).padStart(8, 0);
+}
+
+function domainToHex(domain) {
+  let alphabetDomain = "";
+  let alphabetDomainLength = 0;
+  let bytes;
+
+  for (const word of domain.split(".")) {
+    bytes = "";
+    for (const char of word) {
+      bytes += char.charCodeAt().toString(16).padStart(2, 0);
+    }
+    alphabetDomainLength = (bytes.length / 2).toString(16).padStart(2, 0);
+    alphabetDomain += alphabetDomainLength + bytes;
+  }
+  return alphabetDomain;
+}
+
+function recordToBytes(recordType, record) {
+  let rBytes = "c00c";
+  let alphabetDomain = "";
+
+  rBytes += getRecordTypeHex(recordType);
+  rBytes += "00" + "01";
+  rBytes += parseInt(record["ttl"]).toString(16).padStart(8, 0);
+
+  if (recordType == "A") {
+    rBytes += "00" + "04";
+
+    for (let part of record["data"].split(".")) {
+      rBytes += parseInt(part).toString(16).padStart(2, 0);
+    }
+  } else if (recordType == "SOA") {
+    let mname = domainToHex(record["mname"]);
+    let rname = domainToHex(record["rname"]);
+    let serial = stringToHex(record["serial"]);
+    let refresh = stringToHex(record["refresh"]);
+    let retry = stringToHex(record["retry"]);
+    let expire = stringToHex(record["expire"]);
+    let minimum = stringToHex(record["minimum"]);
+
+    alphabetDomain +=
+      mname + rname + serial + refresh + retry + expire + minimum;
+  } else {
+    alphabetDomain = domainToHex(record["data"]);
+  }
+
+  if (alphabetDomain != "") {
+    switch (recordType) {
+      case "CNAME":
+        alphabetDomain += "00";
+        break;
+      case "MX":
+        alphabetDomain =
+          parseInt(record["preference"]).toString(16).padStart(4, 0) +
+          alphabetDomain;
+        break;
+
+      default:
+        break;
+    }
+    let totalLength = (alphabetDomain.length / 2).toString(16).padStart(4, 0);
+    rBytes += totalLength + alphabetDomain;
+  }
+
+  return rBytes;
+}
 
 // -------- QTYPE LOOK UP TABLES --------
 // lookup table: binary Qtype -> string Qtype
