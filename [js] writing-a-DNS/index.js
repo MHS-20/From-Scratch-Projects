@@ -19,21 +19,29 @@ server.on("message", async (msg, rinfo) => {
   let QDCOUNT = new Buffer.from("0001", "hex");
 
   // extracting domain queries, query type, records from the DNS Zone file
-  let [recordsResult, qt, domainParts, askedRecord] = await getRecords(
+  let [knownRecords, recordType, domainName, askedRecord] = await getRecords(
     msg.slice(12) // all request bytes, without header
   );
 
-  let askedRecords = recordsResult[qt].filter((el) => el.name == askedRecord);
+  // match records based on type and name
+  let askedRecords = knownRecords[recordType].filter(
+    (el) => el.name == askedRecord);
   let ANCOUNT = askedRecords.length.toString(16).padStart(4, 0);
-
   ANCOUNT = new Buffer.from(ANCOUNT, "hex");
+
+  // other header fields set to zero (not implemented)
   let NSCOUNT = new Buffer.from("0000", "hex");
   let ARCOUNT = new Buffer.from("0000", "hex");
-  let domainQuestion = new Buffer.from(buildQuestion(domainParts, qt), "hex");
-  let dnsBody = "";
 
+  // include question in the response 
+  let domainQuestion = new Buffer.from(
+    buildQuestion(domainName, recordType),
+    "hex"
+  );
+
+  let dnsBody = "";
   for (let record of askedRecords) {
-    dnsBody += recordToBytes(qt, record);
+    dnsBody += recordToBytes(recordType, record);
   }
 
   dnsBody = new Buffer.from(dnsBody, "hex");
@@ -128,9 +136,27 @@ async function getRecords(data) {
   let recordType = getRecordType(qType);
   let filePath = path.join(path.dirname(__filename), `zones/${domain}.zone`);
 
-  let records = await processBindFile(filePath);
-  return [records, recordType, domainName, askedRecord];
+  let knownRecords = await processBindFile(filePath);
+  return [knownRecords, recordType, domainName, askedRecord];
 }
+
+
+function buildQuestion(domainParts, recordType) {
+    let qBytes = "";
+  
+    for (let part of domainParts) {
+      let length = part.length;
+      qBytes += length.toString(16).padStart(2, 0);
+      for (let char of part) {
+        qBytes += char.charCodeAt(0).toString(16);
+      }
+    }
+  
+    qBytes += "00";
+    qBytes += getRecordTypeHex(recordType);
+    qBytes += "00" + "01";
+    return qBytes;
+  }
 
 // -------- QTYPE LOOK UP TABLES --------
 // lookup table: binary Qtype -> string Qtype
