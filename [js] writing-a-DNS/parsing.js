@@ -83,7 +83,7 @@ async function processBindFile(filePath = "zones/example2.com.zone") {
             let rr;
 
             [rr, previousName, previousTtl] = processRr(
-              splittedLine,
+              lineSplit,
               containsTtl,
               previousTtl,
               previousName,
@@ -130,19 +130,19 @@ async function processBindFile(filePath = "zones/example2.com.zone") {
 
 
 // process resource record
-function processRr(splittedLine, containsTtl, previousTtl, previousName, origin, ttl) {
+function processRr(lineSplit, containsTtl, previousTtl, previousName, origin, ttl) {
   const rr = {};
-  const totalLength = splittedLine.length;
-  const isMx = !isNaN(Number(splittedLine[totalLength - 2]));
+  const totalLength = lineSplit.length;
+  const isMx = !isNaN(Number(lineSplit[totalLength - 2]));
   
   // Helper function to check and extract TTL
   const extractTTL = () => {
-    for (let index = 0; index < splittedLine.length; index++) {
-      const element = splittedLine[index];
+    for (let index = 0; index < lineSplit.length; index++) {
+      const element = lineSplit[index];
       if (!element.includes(".") && !isNaN(parseInt(element))) {
         containsTtl = true;
         previousTtl = element;
-        splittedLine.splice(index, 1);
+        lineSplit.splice(index, 1);
         break;
       }
     }
@@ -155,32 +155,32 @@ function processRr(splittedLine, containsTtl, previousTtl, previousName, origin,
       extractTTL();
 
       if (containsTtl) {
-        rr.class = splittedLine[0];
-        rr.type = splittedLine[1];
-        rr.data = splittedLine[2];
+        rr.class = lineSplit[0];
+        rr.type = lineSplit[1];
+        rr.data = lineSplit[2];
 
       // MX record with explicit name
       } else if (isMx && totalLength === 4) {
         previousName = "@";
-        rr.class = splittedLine[0];
-        rr.type = splittedLine[1];
-        rr.preference = splittedLine[2];
-        rr.data = splittedLine[3];
+        rr.class = lineSplit[0];
+        rr.type = lineSplit[1];
+        rr.preference = lineSplit[2];
+        rr.data = lineSplit[3];
 
       // Regular case with explicit name
       } else {
-        previousName = splittedLine[0];
-        rr.class = splittedLine[1];
-        rr.type = splittedLine[2];
-        rr.data = splittedLine[3];
+        previousName = lineSplit[0];
+        rr.class = lineSplit[1];
+        rr.type = lineSplit[2];
+        rr.data = lineSplit[3];
       }
       break;
 
     case 3:
       // Compact syntax with no TTL or explicit name
-      rr.class = splittedLine[0];
-      rr.type = splittedLine[1];
-      rr.data = splittedLine[2];
+      rr.class = lineSplit[0];
+      rr.type = lineSplit[1];
+      rr.data = lineSplit[2];
       break;
 
     case 2:
