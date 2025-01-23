@@ -18,11 +18,11 @@ server.on("message", async (msg, rinfo) => {
   // assuming only one question (for simplicity)
   let QDCOUNT = new Buffer.from("0001", "hex");
 
+  // extracting domain queries, query type, records from the DNS Zone file
   let [recordsResult, qt, domainParts, askedRecord] = await getRecords(
     msg.slice(12) // all request bytes, without header
   );
 
-  //  extracting domain queries, query type, records from the DNS Zone file
   let askedRecords = recordsResult[qt].filter((el) => el.name == askedRecord);
   let ANCOUNT = askedRecords.length.toString(16).padStart(4, 0);
 
@@ -52,6 +52,7 @@ function extractOPcode(data) {
   return opcode;
 }
 
+// prepare flags for DNS response
 function getFlags(flags) {
   let QR = "1";
   let AA = "1";
@@ -74,45 +75,124 @@ function getFlags(flags) {
 // --- PARSE REQUEST SECTION ---
 // Qname, Qtype, Qclass
 function getQuestion(data) {
-    let state = 0;
-    let expectedLength = 0;
-    let domainString = "";
-    let domainParts = [];
-    let x = 0; // length counter for each label
-    let y = 0; // length counter for the domain name
-  
-    // extract labels, each one is prefixed by its length
-    // eg: [3]www[7]example[3]com[0]
-  
-    for (const byte of data) {
-      if (state == 1) {
-        domainString += String.fromCharCode(byte);
-        x++;
-  
-        if (x == expectedLength) {
-          domainParts.push(domainString);
-          domainString = "";
-          state = 0;
-          x = 0;
-        }
-  
-        if (byte == 0) {
-          break;  // end of label
-        }
-  
-      } else {
-        state = 1;
-        expectedLength = byte;
-      }
-  
-      y++;
-    } // end for
-  
-    // Qtype
-    let recordType = data.slice(y, y + 2);
-  
-    // we assume that qClass = In (standard for the internet)
-    return [domainParts, recordType];
-  }
-  
+  let state = 0;
+  let expectedLength = 0;
+  let domainString = "";
+  let domainParts = [];
+  let x = 0; // length counter for each label
+  let y = 0; // length counter for the domain name
 
+  // extract labels, each one is prefixed by its length
+  // eg: [3]www[7]example[3]com[0]
+
+  for (const byte of data) {
+    if (state == 1) {
+      domainString += String.fromCharCode(byte);
+      x++;
+      if (x == expectedLength) {
+        domainParts.push(domainString);
+        domainString = "";
+        state = 0;
+        x = 0;
+      }
+      if (byte == 0) {
+        break; // end of label
+      }
+    } else {
+      state = 1;
+      expectedLength = byte;
+    }
+    y++;
+  }
+
+  // Qtype
+  let qType = data.slice(y, y + 2);
+  // we assume that qClass = In (standard for the internet)
+  return [domainParts, qType];
+}
+
+// ---- GET ASKED RECORDS ----
+async function getRecords(data) {
+  let [domain, qType] = getQuestion(data);
+  let askedRecord = "@";
+  let domainName;
+
+  // costructing domain name from labels
+  if (domain.length > 2) {
+    askedRecord = domain[0]; // eg: www
+    domainName = domain[1] + "." + domain[2]; // eg: example.com
+  } else {
+    domainName = domain.join("."); // when 'www' is omitted
+  }
+
+  let recordType = getRecordType(qType);
+  let filePath = path.join(path.dirname(__filename), `zones/${domain}.zone`);
+
+  let records = await processBindFile(filePath);
+  return [records, recordType, domainName, askedRecord];
+}
+
+// -------- QTYPE LOOK UP TABLES --------
+// lookup table: binary Qtype -> string Qtype
+function getRecordType(binary_qType) {
+  let qt;
+  let hexedType = binary_qType.toString("hex");
+  switch (hexedType) {
+    case "0001":
+      qt = "A";
+      break;
+    case "0002":
+      qt = "NS";
+      break;
+    case "0005":
+      qt = "CNAME";
+      break;
+    case "0006":
+      qt = "SOA";
+      break;
+    case "000c":
+      qt = "PTR";
+      break;
+    case "000f":
+      qt = "MX";
+      break;
+    case "0010":
+      qt = "TXT";
+      break;
+    default:
+      break;
+  }
+
+  return qt;
+}
+
+// lookup table:  string Qtype -> binary Qtype
+function getRecordTypeHex(string_Qtype) {
+  let recordTypeHex;
+  switch (string_Qtype) {
+    case "A":
+      recordTypeHex = "0001";
+      break;
+    case "NS":
+      recordTypeHex = "0002";
+      break;
+    case "CNAME":
+      recordTypeHex = "0005";
+      break;
+    case "SOA":
+      recordTypeHex = "0006";
+      break;
+    case "PTR":
+      recordTypeHex = "000c";
+      break;
+    case "MX":
+      recordTypeHex = "000f";
+      break;
+    case "TXT":
+      recordTypeHex = "0010";
+      break;
+    default:
+      break;
+  }
+  return recordTypeHex;
+}
