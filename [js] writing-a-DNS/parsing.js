@@ -1,7 +1,7 @@
 const fs = require("fs");
 const readline = require("readline");
 
-async function processBindFile(filePath = "zones/example2.com.zone") {
+async function processBindFile(filePath = "zones/example.com.zone") {
   // creating readline interface
   const fileStream = fs.createReadStream(filePath);
   const rl = readline.createInterface({
