@@ -32,5 +32,23 @@ vport <serverIp> <serverPort>
 
 Clear binaries: 
 ```
-cleanup.sh
+cleanup.sh 
+```
+
+### Ethernet Frame Format
+The Ethernet frame format used in this project is as follows:
+```
++-----------------------------------------------+
+|             Destination MAC Address           |   (6 bytes)
++-----------------------------------------------+
+|             Source MAC Address                |   (6 bytes)
++-----------------------------------------------+
+|             EtherType / Length                |   (2 bytes)
++-----------------------------------------------|
+|                                               |
+|                Payload / Data                 |   (46–1500 bytes)
+|                                               |
++-----------------------------------------------+
+|             Frame Check Sequence (FCS)        |   (4 bytes)
++-----------------------------------------------+
 ```
