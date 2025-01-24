@@ -1,10 +1,10 @@
+#include "tap_utils.h"
 #include <stdbool.h>
 #include <assert.h>
 #include <stdint.h>
 #include <arpa/inet.h>
 #include <net/ethernet.h>
 #include <pthread.h>
-#include "tap_utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -142,7 +142,7 @@ void *forward_ethernet_data_to_vswitch(void *raw_vport)
  * vSwitch --> Tap
  * reads eth-frames from the vSwitch and forwards it to the TAP device.
  */
-void *forward_ether_data_to_tap(void *raw_vport)
+void *forward_ethernet_data_to_tap(void *raw_vport)
 {
     struct vport_t *vport = (struct vport_t *)raw_vport;
     char ether_data[ETHER_MAX_LEN];
