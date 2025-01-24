@@ -22,10 +22,7 @@ struct vport_t
 
 void vport_init(struct vport_t *vport, const char *server_ip_str, int server_port);
 void *forward_ethernet_data_to_vswitch(void *raw_vport);
-
-// reads data from the vSwitch and forwards it to the TAP device.
 void *forward_ethernet_data_to_tap(void *raw_vport);
-
 
 int main(int argc, char const *argv[])
 {
@@ -137,6 +134,46 @@ void *forward_ethernet_data_to_vswitch(void *raw_vport)
                    hdr->ether_shost[0], hdr->ether_shost[1], hdr->ether_shost[2], hdr->ether_shost[3], hdr->ether_shost[4], hdr->ether_shost[5],
                    ntohs(hdr->ether_type),
                    eth_data_sz);
+        }
+    }
+}
+
+/**
+ * vSwitch --> Tap
+ * reads eth-frames from the vSwitch and forwards it to the TAP device.
+ */
+void *forward_ether_data_to_tap(void *raw_vport)
+{
+    struct vport_t *vport = (struct vport_t *)raw_vport;
+    char ether_data[ETHER_MAX_LEN];
+    while (true)
+    {
+        // read ethernet frame from vSwitch
+        socklen_t vswitch_addr = sizeof(vport->vswitch_addr);
+        int ether_datasz = recvfrom(vport->vport_sockfd, ether_data, sizeof(ether_data), 0,
+                                    (struct sockaddr *)&vport->vswitch_addr, &vswitch_addr);
+
+        if (ether_datasz > 0)
+        {
+            assert(ether_datasz >= 14); // ethernet header
+            const struct ether_header *hdr = (const struct ether_header *)ether_data;
+
+            // forward frame to TAP device
+            ssize_t sendsz = write(vport->tapfd, ether_data, ether_datasz);
+            if (sendsz != ether_datasz)
+            {
+                fprintf(stderr, "sendto size mismatch: ether_datasz=%d, sendsz=%d\n", ether_datasz, sendsz);
+            }
+
+            printf("[VPort] Forward to TAP device:"
+                   " dhost<%02x:%02x:%02x:%02x:%02x:%02x>"
+                   " shost<%02x:%02x:%02x:%02x:%02x:%02x>"
+                   " type<%04x>"
+                   " datasz=<%d>\n",
+                   hdr->ether_dhost[0], hdr->ether_dhost[1], hdr->ether_dhost[2], hdr->ether_dhost[3], hdr->ether_dhost[4], hdr->ether_dhost[5],
+                   hdr->ether_shost[0], hdr->ether_shost[1], hdr->ether_shost[2], hdr->ether_shost[3], hdr->ether_shost[4], hdr->ether_shost[5],
+                   ntohs(hdr->ether_type),
+                   ether_datasz);
         }
     }
 }
