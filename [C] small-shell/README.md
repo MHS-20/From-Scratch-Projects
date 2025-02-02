@@ -4,6 +4,13 @@ Simple implementation of a shell in C. It reads input from the user, tokenizes a
 
 The shell assumes that the PATH environment variable is set and contains valid directories.
 
+It supports the following built-in commands:
+- exit
+- cd
+- help
+- env
+
+
 <br>
 Usage: 
 
