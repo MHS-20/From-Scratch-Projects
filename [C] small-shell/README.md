@@ -6,6 +6,7 @@ The shell assumes that the PATH environment variable is set and contains valid d
 
 <br>
 Usage: 
+
 ```
 gcc *.c -o shell && ./shell
 ```
