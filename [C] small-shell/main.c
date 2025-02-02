@@ -1,58 +1,72 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+#include "shell.h"
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
+// set up for built-in commands
+char *builtin_func_list[] = {
+    "cd",
+    "exit",
+    "help",
+    "env"};
 
-#define ARRAY_SIZE 1024
+int (*builtin_func[])(char **) = {
+    &change_directory,
+    &shell_exit,
+    &shell_help,
+    &shell_env};
 
-char *get_file_path(char *cmd);
-char *get_file_loc(char *path, char *file_name);
-int isAbsolute(const char *str);
+int num_builtins = sizeof(builtin_func_list) / sizeof(char *);
+
+// Function to check for built-in commands and execute them
+int execute_builtin(char **args)
+{
+    for (int i = 0; i < num_builtins; i++)
+    {
+        if (strcmp(args[0], builtin_func_list[i]) == 0)
+        {
+            return (*builtin_func[i])(args);
+        }
+    }
+    return -1; // Not a built-in command
+}
 
 int main(int argc, char **argv)
 {
     (void)argc, (void)argv;
-    char *buf = NULL, *token;
-    int i, status;
-    char **array;
+    char *buf = NULL;
+    char **tokens;
+    int status;
     char *path;
 
     size_t count = 0;
     ssize_t nread;
     pid_t child_pid;
 
+    // shell loop
     while (1)
     {
         if (isatty(STDIN_FILENO))
             write(STDOUT_FILENO, "MyShell$ ", 9);
 
         nread = getline(&buf, &count, stdin);
-
         if (nread == -1)
         {
-            exit(0);
+            exit(EXIT_FAILURE);
         }
 
         // tokenize input
-        token = strtok(buf, " \n");
-        array = malloc(sizeof(char *) * ARRAY_SIZE);
+        tokens = tokenize(buf);
 
-        i = 0;
-        while (token)
+        // Check for built-in commands
+        int builtin_status = execute_builtin(tokens);
+        if (builtin_status == 0)
         {
-            array[i] = token;
-            token = strtok(NULL, " \n");
-            i++;
+            break; // Exit shell
+        }
+        else if (builtin_status == 1)
+        {
+            continue; // Built-in command executed
         }
 
-        array[i] = NULL;
         child_pid = fork();
-
         if (child_pid == -1)
         {
             perror("Failed to create.");
@@ -60,12 +74,12 @@ int main(int argc, char **argv)
         }
 
         // get command path
-        path = get_file_path(array[0]);
+        path = get_file_path(tokens[0]);
 
         // execute command
         if (child_pid == 0)
         {
-            if (execve(path, array, NULL) == -1)
+            if (execve(path, tokens, NULL) == -1)
             {
                 perror("Failed to execute");
                 exit(97);
@@ -76,8 +90,50 @@ int main(int argc, char **argv)
             wait(&status);
         }
     }
+
     free(buf);
     return (0);
+}
+
+// tokenize input
+char **tokenize(char *buf)
+{
+
+    char **tokens;
+    int arraysize = 64;
+    char *token;
+    int i;
+
+    token = strtok(buf, " \n");
+    tokens = malloc(sizeof(char *) * arraysize);
+
+    i = 0;
+    while (token)
+    {
+        // comments
+        if (token[0] == '#')
+            break;
+
+        tokens[i] = token;
+        token = strtok(NULL, " \n");
+        i++;
+
+        // enlarge array if needed
+        if (i >= arraysize)
+        {
+            arraysize += arraysize;
+            tokens = realloc(tokens, arraysize * sizeof(char *));
+
+            if (!tokens)
+            {
+                fprintf(stderr, "reallocation error for tokens");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+
+    tokens[i] = NULL;
+    return tokens;
 }
 
 // retrive command path from PATH var
